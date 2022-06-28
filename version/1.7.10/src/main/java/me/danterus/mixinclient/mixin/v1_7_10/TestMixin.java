@@ -1,4 +1,4 @@
-package me.danterus.mixinclient.mixin;
+package me.danterus.mixinclient.mixin.v1_7_10;
 
 import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Mixin;
@@ -11,7 +11,7 @@ public class TestMixin {
 
     @Inject(method = "startGame", at = @At("HEAD"))
     public void onStartGame(CallbackInfo callbackInfo) {
-        System.out.println("Client Started!");
+        System.out.println("Client Started 1.7.10!");
     }
 
 }

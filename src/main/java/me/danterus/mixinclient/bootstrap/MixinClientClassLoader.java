@@ -1,6 +1,8 @@
 package me.danterus.mixinclient.bootstrap;
 
 import org.apache.commons.io.IOUtils;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 
 import java.io.IOException;
@@ -8,10 +10,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.List;
+import java.util.*;
 
 public class MixinClientClassLoader extends URLClassLoader {
 
@@ -114,6 +113,21 @@ public class MixinClientClassLoader extends URLClassLoader {
                 result = datas.toArray(new byte[0][]);
             } else {
                 result = new byte[][] { new byte[0] };
+            }
+
+            if (className.contains("io.Closeables")) {
+                for (int i = 0; i < result.length; i++) {
+                    ClassReader classReader = new ClassReader(result[i]);
+                    ClassNode classNode = new ClassNode();
+                    classReader.accept(classNode, 0);
+
+                    boolean hasCloseQuietly = classNode.methods.stream().anyMatch(method -> method.name.equals("closeQuietly") && method.desc.equals("(Ljava/io/Reader;)V"));
+                    if (hasCloseQuietly) {
+                        byte[] first = result[0];
+                        result[0] = result[i];
+                        result[i] = first;
+                    }
+                }
             }
 
             return result[0];
