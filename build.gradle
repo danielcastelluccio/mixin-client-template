@@ -1,0 +1,94 @@
+import org.gradle.api.plugins.internal.JvmPluginsHelper
+import com.github.glassmc.kiln.standard.MixinRemapper
+import com.github.glassmc.kiln.standard.environment.*
+
+buildscript {
+    repositories {
+        mavenCentral()
+
+        maven {
+            url = 'https://glassmc.ml/repository/'
+        }
+        maven {
+            url = 'https://jitpack.io/'
+        }
+        maven {
+            url = 'https://libraries.minecraft.net/'
+        }
+    }
+
+    dependencies {
+        classpath 'com.github.glassmc:kiln:0.8.11'
+    }
+}
+
+plugins {
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+}
+
+apply plugin: 'java'
+apply plugin: 'kiln-main'
+apply plugin: 'maven-publish'
+
+group = "me.danterus"
+version = "1.0"
+
+JvmPluginsHelper.addApiToSourceSet(sourceSets.main, project.configurations)
+
+sourceCompatibility = targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+
+    maven {
+        url = 'https://glassmc.ml/repository/'
+    }
+    maven {
+        url = 'https://jitpack.io/'
+    }
+    maven {
+        url = 'https://repo.spongepowered.org/repository/maven-public/'
+    }
+}
+
+dependencies {
+    shadowApi 'commons-io:commons-io:2.11.0'
+
+    api 'org.ow2.asm:asm-tree:9.3'
+    api 'org.ow2.asm:asm-commons:9.3'
+    shadowApi 'org.ow2.asm:asm-util:9.3'
+    shadowApi 'com.google.guava:guava:31.1-jre'
+
+    shadowApi 'org.spongepowered:mixin:0.8.5'
+
+    compileOnly 'net.minecraft:client-1.8.9:mcp-noprefix'
+}
+
+kiln {
+    environment = new MixinClientEnviroment()
+    transformers = [new MixinRemapper()]
+}
+
+class MixinClientEnviroment implements Environment {
+
+    @Override
+    String getMainClass() {
+        return "me.danterus.mixinclient.bootstrap.MixinClientMain"
+    }
+
+    @Override
+    String[] getProgramArguments(String environment, String version) {
+        return new String[] {}
+    }
+
+    @Override
+    String[] getRuntimeDependencies(File file) {
+        return new String[] {"", ""}
+    }
+
+    @Override
+    String getVersion(String s) {
+        return "MixinClient-" + s
+    }
+
+}

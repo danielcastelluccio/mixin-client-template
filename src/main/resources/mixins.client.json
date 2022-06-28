@@ -1,0 +1,10 @@
+{
+  "required": true,
+  "compatibilityLevel": "JAVA_8",
+  "verbose": true,
+  "package": "me.danterus.mixinclient.mixin",
+  "minVersion": "0.8.3",
+  "mixins": [
+    "TestMixin"
+  ]
+}
