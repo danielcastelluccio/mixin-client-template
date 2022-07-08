@@ -5,3 +5,10 @@ include(
         ':version:1.7.10'
 )
 
+if (new File(rootDir, "launch").exists()) {
+    for (File file : new File(rootDir, "launch").listFiles()) {
+        if (!file.name.startsWith(".")) {
+            include(':launch:' + file.name)
+        }
+    }
+}

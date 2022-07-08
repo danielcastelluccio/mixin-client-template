@@ -35,8 +35,8 @@ public class ClientMixinTransformer {
             BytecodeProvider bytecodeProvider = (BytecodeProvider) MixinService.getService().getBytecodeProvider();
 
             if(!bytecodeProvider.getIgnore().contains(name)) {
-                if (this.mixinTransformer.transformClass(environment, name, classNode)) {
-                    ClassWriter classWriter = new ClassWriter(0);
+                if (this.mixinTransformer.transformClass(environment, name.replace("/", "."), classNode)) {
+                    ClassWriter classWriter = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
                     classNode.accept(classWriter);
                     return classWriter.toByteArray();
                 }

@@ -3,3 +3,11 @@
 build
 run/*
 !run/.gitkeep
+launch
+
+.project
+.classpath
+*.launch
+bin
+.settings
+out

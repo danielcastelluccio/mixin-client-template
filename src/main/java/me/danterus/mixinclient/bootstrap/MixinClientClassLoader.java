@@ -2,7 +2,9 @@ package me.danterus.mixinclient.bootstrap;
 
 import org.apache.commons.io.IOUtils;
 import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.*;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 
 import java.io.IOException;
@@ -39,12 +41,11 @@ public class MixinClientClassLoader extends URLClassLoader {
         this.exclusions.add("org.slf4j.");
         this.exclusions.add("com.mojang.blocklist.");
 
-        this.exclusions.add("com.github.glassmc.loader.api.loader.Transformer");
-        this.exclusions.add("com.github.glassmc.loader.api.ClassDefinition");
-
         this.mixinTransformer = this.loadClass("org.spongepowered.asm.mixin.transformer.ClientMixinTransformer").getConstructor().newInstance();
         this.transformMethod = this.loadClass("org.spongepowered.asm.mixin.transformer.ClientMixinTransformer").getMethod("transform", String.class, byte[].class);
     }
+
+    private final Map<String, Class<?>> cache = new HashMap<>();
 
     @Override
     public Class<?> loadClass(String name) throws ClassNotFoundException {
@@ -59,9 +60,14 @@ public class MixinClientClassLoader extends URLClassLoader {
         }
 
         Class<?> clazz = super.findLoadedClass(name);
+        if (clazz == null) {
+            clazz = cache.get(name);
+        }
+
         if(clazz == null) {
             byte[] data = this.getModifiedBytes(name);
             clazz = super.defineClass(name, data, 0, data.length);
+            cache.put(name, clazz);
         }
         return clazz;
     }
@@ -77,6 +83,70 @@ public class MixinClientClassLoader extends URLClassLoader {
 
     public byte[] getModifiedBytes(String name) throws ClassNotFoundException {
         byte[] data = loadClassData(name);
+
+        if (name.equals("com.google.common.base.Objects")) {
+            ClassNode classNode = new ClassNode();
+            ClassReader classReader = new ClassReader(data);
+            classReader.accept(classNode, 0);
+
+            if (classNode.methods.stream().noneMatch(method -> method.name.equals("firstNonNull") && method.desc.equals("(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"))) {
+                MethodNode methodNode = new MethodNode();
+                methodNode.name = "firstNonNull";
+                methodNode.desc = "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;";
+                InsnList insnList = new InsnList();
+                insnList.add(new VarInsnNode(Opcodes.ALOAD, 0));
+                insnList.add(new VarInsnNode(Opcodes.ALOAD, 1));
+                insnList.add(new MethodInsnNode(Opcodes.INVOKESTATIC, Alternate.class.getName().replace(".", "/"), "firstNonNull", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"));
+                insnList.add(new InsnNode(Opcodes.ARETURN));
+                methodNode.instructions.add(insnList);
+                methodNode.maxLocals = 3;
+                methodNode.maxStack = 3;
+                methodNode.access = Opcodes.ACC_STATIC | Opcodes.ACC_PUBLIC;
+                classNode.methods.add(methodNode);
+
+                ClassWriter classWriter = new ClassWriter(0);
+                classNode.accept(classWriter);
+                data = classWriter.toByteArray();
+            }
+        }
+
+        if (name.equals("com.google.common.collect.Iterators")) {
+            ClassNode classNode = new ClassNode();
+            ClassReader classReader = new ClassReader(data);
+            classReader.accept(classNode, 0);
+
+            classNode.methods.stream()
+                    .filter(method -> method.name.equals("emptyIterator") && method.desc.equals("()Lcom/google/common/collect/UnmodifiableIterator;"))
+                    .forEach(method -> method.access += Opcodes.ACC_PUBLIC);
+
+            ClassWriter classWriter = new ClassWriter(0);
+            classNode.accept(classWriter);
+            data = classWriter.toByteArray();
+        }
+
+        if (name.equals("com.google.common.util.concurrent.Futures")) {
+            ClassNode classNode = new ClassNode();
+            ClassReader classReader = new ClassReader(data);
+            classReader.accept(classNode, 0);
+
+            MethodNode methodNode = new MethodNode();
+            methodNode.name = "addCallback";
+            methodNode.desc = "(Lcom/google/common/util/concurrent/ListenableFuture;Lcom/google/common/util/concurrent/FutureCallback;)V";
+            InsnList insnList = new InsnList();
+            insnList.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            insnList.add(new VarInsnNode(Opcodes.ALOAD, 1));
+            insnList.add(new MethodInsnNode(Opcodes.INVOKESTATIC, Alternate.class.getName().replace(".", "/"), "addCallback", "(Lcom/google/common/util/concurrent/ListenableFuture;Lcom/google/common/util/concurrent/FutureCallback;)V"));
+            insnList.add(new InsnNode(Opcodes.RETURN));
+            methodNode.instructions.add(insnList);
+            methodNode.maxLocals = 3;
+            methodNode.maxStack = 3;
+            methodNode.access = Opcodes.ACC_STATIC | Opcodes.ACC_PUBLIC;
+            classNode.methods.add(methodNode);
+
+            ClassWriter classWriter = new ClassWriter(0);
+            classNode.accept(classWriter);
+            data = classWriter.toByteArray();
+        }
 
         try {
             name = name.replace(".", "/");
@@ -113,21 +183,6 @@ public class MixinClientClassLoader extends URLClassLoader {
                 result = datas.toArray(new byte[0][]);
             } else {
                 result = new byte[][] { new byte[0] };
-            }
-
-            if (className.contains("io.Closeables")) {
-                for (int i = 0; i < result.length; i++) {
-                    ClassReader classReader = new ClassReader(result[i]);
-                    ClassNode classNode = new ClassNode();
-                    classReader.accept(classNode, 0);
-
-                    boolean hasCloseQuietly = classNode.methods.stream().anyMatch(method -> method.name.equals("closeQuietly") && method.desc.equals("(Ljava/io/Reader;)V"));
-                    if (hasCloseQuietly) {
-                        byte[] first = result[0];
-                        result[0] = result[i];
-                        result[i] = first;
-                    }
-                }
             }
 
             return result[0];

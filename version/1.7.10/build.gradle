@@ -21,7 +21,7 @@ repositories {
 
 dependencies {
     compileOnly project(':')
-    compileOnly 'net.minecraft:client-1.7.10:mcp-noprefix'
+    compileOnly 'net.minecraft:client-1.7.10:mcp'
 }
 
 kiln {
